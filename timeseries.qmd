@@ -1,0 +1,864 @@
+---
+title: "Dashboard Analytics Project"
+authors: "Rishikesh Govind"
+format: html
+editor: visual
+bibliography: references.bib
+execute:
+  echo: true
+---
+
+```{r}
+install.packages("devtools")
+devtools::install_github("quinfer/tsfe")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse) 
+library(tidyquant)
+library(tsfe)
+library(fpp2)
+library(gt)
+library(tseries)
+```
+
+## Introduction and critique
+
+::: callout
+Time-series analysis is a fundamental tool in finance and risk management. Many key time series data have predictable components and building accurate time-series models allows past values to be used to forecast future changes in these series. The use of time series analysis for predicting stock market prices has always fascinated investors and academics alike. But the market returns have always remained elusive due to their dynamic and constantly evolving nature. Several researchers have tried in the past to study the predictability of market returns using various time series models and the effect of data characteristics, time horizons, and frequency on the predictability of models.
+
+A series of academic studies in the 1980s like Campbell (1987), Campbell and Shiller (1988), Fama and French (1988, 1989), and Fama and Schwert (1981) suggested that the stock market returns were predictable. These studies were mainly concerned with in-sample predictability using predictor variables such as the P/E ratio, dividend yield, interest rates, default premia, or macroeconomic variables such as inflation. But studies in the 1990s and early 2000s were focused on out-of-sample predictability and they came to the conclusion that predictability was either confined to certain sub-samples (Pesaran & Timmermann, 1995), or completely absent (Bossaerts & Hillion, 1999). Goyal and Welch (2003) conclude that the predictor variables used in the earlier studies are capable of systematically predicting the stock market returns. Timmermann (2008) evaluated the performance of different time series models in predicting stock returns. The study came to the conclusion that most of the time stock returns are not predictable but there are some pockets in time where there is modest evidence of local predictability. The study also came to the conclusion that no single model consistently outperforms the simple prevailing mean over long periods of time and that return predictability is short-lived and deteriorates over time. According to Timmermann(2008), any successful model of predictability will perform well before it is widely discovered and adopted. Once the learning and adoption of the method more complete, the information in the forecast will get incorporated into prices and the model will cease to perform well. The study by Avramov, Chordia, and Goyal (2006) finds that the mean reversion at the daily interval is strongest for the least liquid stocks. This is consistent with the notion that such market microstructure effects account for the mean reversion observed in prices at high frequencies. But their study is also not conclusive about return predictability at longer horizons such as one year or more. Hence, the literature review of past studies related to the predictability of market returns give us mixed results. The majority of the earlier works come to the conclusion that market returns are predictable but the later studies do not agree with this. Recent studies are of the opinion that market return predictability is elusive and predictability if possible is confined to certain pockets.
+
+Keeping in the background the conclusions of the past research works, our study tries to predict the returns of two indices (world and, FTSE) for different frequencies (daily, weekly, and monthly) using three different time series models (Naïve, Random Walk, and ARIMA). The objective of the study is to determine the best-suited model for predicting the returns of the chosen indices and to assess the effect of frequency on the predictability of each model. The study is using in-sample forecasting to select the best-fitted model.
+:::
+
+## Data and methods
+
+::: callout
+For this research study, we are using three different time series models for assessing the predictability of returns of two indices (world and FTSE) for three different frequencies. The time series models used are;
+
+1.  Naïve Model
+
+The naïve method is a simple forecasting method that assumes that the future values of the time series will be the same as the most recent observed value. It is given by the equation, y{t+1} = y{t} where y{t+1} is the forecast for the next period and y{t} is the value of the time series at the current period. While naïve forecasts are simple to understand and implement and can achieve good accuracy levels in many situations, they have several limitations such as the lack of accuracy in situations where the data follows a more complex pattern. They also have limited use in longer forecasting horizons. Naive forecasts can be used as actual forecasts or as a baseline to compare against other forecasting methods.
+
+2.  Drift Model
+
+The drift method is a variation of the naïve method which allows the forecasts to increase or decrease over time, where the amount of change over time is calculated using the average change seen in the historical data. It is given using the formula, y{t+1} = y{t} + c where y{t+1} is the forecast for the next period, y{t} is the value of the time series at the current period, and c is the slope of the trend. This is the same as drawing a line between the first and last observations and extrapolating it into the future to make forecasts. Like the naïve model, the drift model has limited accuracy for data with more complex patterns. The drift model is ideally more applicable for data that has a constant average rate of change over time.
+
+3.  ARIMA Model
+
+Autoregressive Integrated Moving Average is a time series model used to predict the future values based on the past values of the time series by taking into account autocorrelation, trend, and seasonality in the data. ARIMA models can only be used for stationary data, hence non-stationary data has to be transformed into stationary data by taking simple returns or log-returns of the financial time series data. ARIMA models are defined by three parameters: (p,d,q), which correspond to the order of the autoregressive, integrated, and moving average parts of the model, respectively. An ARIMA(1,1,1) is given by the formula, y{t}- y{t-1} = c + ϕ{1}(y{t-1}-y{t-2}) + θ{1}ε{t-1} + ε{t} ARIMA models rely heavily on past observations to make future predictions and hence have the tendency to overfit the data when the model is too complex, leading to poor out-of-sample accuracy.
+
+Data Collection
+
+For this research study, data was loaded from the indices data frame which is part of the 'tsfe' package in R. The indices dataset is a collection of stock price indices and foreign currency exchange rates. The data is stored in the form of a data frame with 15,651 rows and 19 columns and covers a time period between January 1960 and January 2020. This paper will primarily focus on forecasting the equity index returns of 2 indices: FTSE, and World Index.
+
+Data Format and Features
+
+The data in the indices dataset is in the form of a tibble which is simply a user-friendly version of a data frame. The data contains one date column in POSIXct format and 18 numeric columns representing the different stock market indices and currency exchange rates. The summary function in R was used to obtain information on the data features such as minimum, maximum, mean, median, and quantiles for each column, and the range function was used to obtain the range of dates for the data.
+
+Limitations of the dataset
+
+One limitation of this dataset is that it includes missing data, with 64,536 missing values in total. The FTSE index data begins from April 1962, while the World Index data is only available from January 1973.
+
+MAJOR STEPS IN METHODOLOGY
+
+1.  Stationarity Check
+
+Checking if the data is stationary using Augmented Dickey Fuller(ADF) test. We reject the null hypothesis of the presence of unit root if p-value is greater than the level of significance;
+
+2.  Differencing
+
+If the data is found to be non-stationary, we transform the data by taking the first difference to make it stationary. The data is again checked for stationarity by using the ADF test.
+
+3.  Naïve model
+
+The data is then fitted to the Naïve model. The fit of the model is estimated based on the autocorrelation of residuals using Ljung Box test. If p-value of the test is greater than the level of significance (5%), then it can be concluded that the model fits well.
+
+4.  Random Walk Model
+
+The data is again fitted to Random Walk Model. The suitability of the model is again determined based on the Ljung test.
+
+5.  ARIMA Model
+
+Finally, the data is fitted to the ARIMA model. The auto.arima() function chooses the best fitting ARIMA model based on the Akaike Information Criterion (AIC) value. The lesser the value, the better the fit of the model. The Ljung box test is done on the residuals to check for autocorrelation.
+
+6.  Best Model
+
+The best-fitting model is selected by comparing the Mean Absolute Error (MAE) values given by each model The model which gives the least value of MAE can be considered the best model among the three. The Ljung Box test is also done to test the autocorrelation of the residuals of the model. The best-fit model shows no autocorrelation of residuals.
+
+7.  Steps 1 to 5 are repeated for data of both the indices (world index and FTSE) for different frequencies (daily, weekly, and, monthly). The best-fit model is then determined for each index for all three frequencies.
+:::
+
+```{r}
+head(tsfe::indices)
+```
+
+```{r}
+str(tsfe::indices)
+```
+
+```{r}
+class(tsfe::indices)
+summary(tsfe::indices[, -1])
+range(tsfe::indices$date)
+```
+
+```{r}
+sum(is.na(tsfe::indices))
+```
+
+## Results
+
+```{r}
+# NAIVE MODEL RESULTS
+
+naive_results <- data.frame(
+  Index = c( "World", "World", "World", "FTSE", "FTSE", "FTSE"),
+  Frequency = c( "Daily", "Weekly", "Monthly", "Daily", "Weekly", "Monthly"),
+  MAE = c( 11.2041,8.3755,3.8518,29.8904,31.2488,9.9804),
+  Ljung_Box_test_statistic = c( 1724.9, 313.59,69.466,1284.5, 417.28,181.2),
+  P_value = c("<2.2e-16","<2.2e-16","2.633e-06 ","<2.2e-16","<2.2e-16","<2.2e-16" )
+)
+
+attr(naive_results, "title") <- "Table 1"
+
+# Print the data frame with the title
+
+cat(attr(naive_results, "title"), "\n")
+print(naive_results)
+
+# Table 1 gives the output of Ljung Box test and MAE values for Naïve model.
+```
+
+```{r}
+# DRIFT MODEL-RANDOM WALK FORECAST RESULTS
+
+drift_results <- data.frame(
+  Index = c( "World", "World", "World", "FTSE", "FTSE", "FTSE"),
+  Frequency = c( "Daily", "Weekly", "Monthly", "Daily", "Weekly", "Monthly"),
+  MAE = c( 11.2040,8.3773,3.8520,29.8899,31.2501,9.9805),
+  Ljung_Box_test_statistic = c( 1724.9, 313.59,69.466,1284.5, 417.28,181.2),
+  P_value = c("<2.2e-16","<2.2e-16","1.47e-06 ","<2.2e-16","<2.2e-16","<2.2e-16" )
+)
+
+attr(drift_results, "title") <- "Table 2"
+
+# Print the data frame with the title
+
+cat(attr(drift_results, "title"), "\n")
+print(drift_results)
+
+# Table 2 gives the output of Ljund Box test and MAE values for Random Walk model
+```
+
+```{r}
+# ARIMA MODEL RESULTS
+
+arima_results <- data.frame(
+  Index = c( "World", "World", "World", "FTSE", "FTSE", "FTSE"),
+  Frequency = c( "Daily", "Weekly", "Monthly", "Daily", "Weekly", "Monthly"),
+  Order_of_ARIMA_model = c("(1,1,0)","(2,1,2),(0,0,1),[52]" ,"(0,1,1)","(0,1,0)","(0,1,0)(2,0,0)[52]","(2,1,4)(0,0,1)[12]"),
+  MAE = c( 8.2996, 6.3898,3.0870,21.1423, 21.9396,6.8199),
+  AIC = c(43019.7,7428.12,2043.73,24120.12,9983,2601.74)
+)
+
+attr(arima_results, "title") <- "Table 3"
+
+# Print the data frame with the title
+
+cat(attr(arima_results, "title"), "\n")
+print(arima_results)
+
+# The function auto.arima() chooses the best-fit model by looking at the AIC value. The lesser the value of AIC, the better the fit. Table 3 gives the best-fitted ARIMA model for both indices for different frequencies.
+```
+
+```{r}
+# ARIMA Diagnostic RESULTS
+
+arima_diag <- data.frame(
+  Index = c( "World", "World", "World", "FTSE", "FTSE", "FTSE"),
+  Frequency = c( "Daily", "Weekly", "Monthly", "Daily", "Weekly", "Monthly"),
+  Ljung_Box_test_statistic = c( 495.59, 125.03,14.43,478.51, 134.23,23.95),
+  P_value = c(0.5846,0.0396,0.9139,0.7869,0.01784,0.1208)
+)
+
+attr(arima_diag, "title") <- "Table 4"
+
+# Print the data frame with the title
+
+cat(attr(arima_diag, "title"), "\n")
+print(arima_diag)
+
+# The Ljung box test is run to check the autocorrelation of residuals.  If the p-value of the test is greater than the level of significance (5%), then it can be concluded that there is no autocorrelation of residuals and that the model fits well. Table 4 lists the results of the Ljung Box test and MAE values of the ARIMA model.
+```
+
+::: callout
+The Mean Absolute Error (MAE) value is the lowest for the ARIMA model in all categories of frequencies for both indices. So, it can be concluded that ARIMA is a better model than the other two models for predicting index performances.
+
+The result of the Ljung Box test for autocorrelation of residuals of the ARIMA model shows that there is no autocorrelation of residuals for daily and monthly frequency models for both the world index and FTSE. So, it can be concluded that the ARIMA model is a good model for predicting daily and monthly forecasts for both these indices. But on the other hand, the weekly forecasting models for both indices fail the Ljung Box test, meaning there is autocorrelation for residuals in both cases. So, the ARIMA model cannot be considered a good model for predicting the weekly changes in the indices.
+:::
+
+## Discussion
+
+::: callout
+The aim of the study was to find the best fitting model among Naïve, Random Walk, and ARIMA models for predicting index returns. The result from the study shows that ARIMA is a better model compared to both Naïve and Random Walk models for the available time series data. The Mean Absolute Error (MAE) is the lowest for the ARIMA model for both the indices for daily, weekly, and monthly forecasts. But the results from the Ljung test show that ARIMA is a good fit only for daily and monthly forecasts. The model that uses weekly frequency fails the test for autocorrelation meaning the ARIMA model was not able to fully capture the characteristics of the weekly data. One possible explanation for this is the weekly data could be more volatile and complex compared to daily and monthly time series. Also, the weekly data could be more susceptible to the influence of weekends and holidays and could be greatly influenced by outliers.
+
+Several alternatives are available to the ARIMA model that are better at capturing characteristics of the time series data that are not captured well by the ARIMA model. Seasonal ARIMA (SARIMA) is an extension of ARIMA that includes seasonal components to account for periodic patterns in data. Prophet is another time series model that works best with seasonal data and several seasons of historic data. It is also good at handling missing data, shifts in trends, and outliers. In conclusion, the ARIMA model could be considered a good forecasting model for index predictability compared to simple time series models like Naïve and Random Walk. The study finds the model to be a good fit for both daily and monthly forecasts but using forecasting models for long horizons like months or years is risky given the unpredictable nature of stock markets.
+:::
+
+## Data Analysis and Manipulation
+
+Use the `tsfe::ftse` data for this example
+
+```{r}
+#| label: load-packages
+#| message: false
+
+library(tidyverse)
+library(tsfe)
+library(data.table)
+```
+
+```{r}
+indices_d <- tsfe::indices
+```
+
+```{r}
+# Plot the indices
+
+indices_d_filtered <- indices_d %>%
+  filter(date >= "2000-01-24", date <= "2020-01-25")
+indices_d_filtered %>% 
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = `WORLD-DS Market - PRICE INDEX`, colour = "WORLD")) +
+  geom_line(aes(y = `FTSE ALL SHARE - PRICE INDEX`, colour = "FTSE")) +
+  scale_color_manual(values = c("green", "pink")) +
+  labs(title = "World Market Price Index (2000-2020)",
+       y = "Index Value",
+       x = "Year") +
+  theme_minimal()
+```
+
+# World Index Monthly Dataset
+
+```{r}
+# Subset the data to only include World Index and the date column, and rename the World Index column
+
+colnames(indices_d)[19] <- "World"
+world_data_m <- subset(indices_d, select = c(date, `World`))
+```
+
+```{r}
+# Convert the date column to a Date format and format it as "YYYY-MM-DD"
+world_data_m$date <- as.Date(world_data_m$date)
+
+# Subset the data to only include the last 30 years
+start_date_m <- as.Date("1990-01-01")
+end_date_m <- as.Date("2020-01-01")
+world_data_m <- subset(world_data_m, date >= start_date_m & date <= end_date_m)
+```
+
+```{r}
+# Creating a time series object of the monthly series
+
+world_m <- ts(world_data_m[,2], start = c(1990, 1), end = c(2020, 1), frequency = 12)
+
+world_m_ts <-diff(world_m)
+```
+
+```{r}
+# Time series components
+
+world_m_ts_components <- decompose(world_m_ts)
+plot(world_m_ts_components)
+```
+
+# Interactive time plot
+
+```{r}
+# Plotting for trends and patterns
+
+autoplot(world_m_ts) + ggtitle("World Monthly Time Series")
+ggseasonplot(world_m_ts) + ggtitle("Seasonal Plot of World Monthly Time Series")
+ggsubseriesplot(world_m_ts) + ggtitle("Subseries Plot of World Monthly Time Series")
+gglagplot(world_m_ts) + ggtitle("Lag Plot of World Monthly Time Series")
+ggAcf(world_m_ts,lag.max = 20)+ ggtitle("ACF Plot of World Monthly Time Series")
+```
+
+```{r}
+# ADF test to check stationarity
+
+adf.test(world_m_ts)
+```
+
+```{r}
+# Naive forecast
+
+world_m_naive <- naive(world_m_ts, h = 12)
+checkresiduals(world_m_naive)
+forecast(world_m_naive, h = 12) 
+accuracy(world_m_naive)
+```
+
+```{r}
+# Drift- Random walk forcast
+
+world_m_ts %>% rwf %>% residuals -> res_world_m
+rwf_world_m <- rwf(world_m_ts, level=95, drift = TRUE)
+checkresiduals(rwf_world_m)
+summary(rwf_world_m)
+```
+
+```{r}
+# Fit ARIMA model on the time series
+
+arima_model_world_m <- auto.arima(world_m, ic="aic",d=1, trace = TRUE)
+```
+
+```{r}
+# Print model summary
+
+summary(arima_model_world_m)
+```
+
+```{r}
+# Plot residuals
+
+checkresiduals(arima_model_world_m)
+```
+
+```{r}
+# Forecast for  next 12 months
+
+forecast_values_world_m <- forecast(arima_model_world_m, level = c(95), h=12)
+```
+
+```{r}
+# Plot predicted values
+
+plot1 <-autoplot(forecast_values_world_m)
+plot1 + labs(title = "Forecasted Values of World Monthly Time Series") + ylab("World Index")
+```
+
+# World Index Weekly Dataset
+
+```{r}
+# Subset the data to only include World Index and the date column, and rename the World Index column
+
+colnames(indices_d)[19] <- "World"
+world_data_w <- subset(indices_d, select = c(date, `World`))
+```
+
+```{r}
+# Convert the date column to a Date format and format it as "YYYY-MM-DD"
+world_data_w$date <- as.Date(world_data_w$date)
+
+# Subset the data to only include the last 30 years
+start_date_w <- as.Date("2000-01-01")
+end_date_w <- as.Date("2020-01-01")
+world_data_w <- subset(world_data_w, date >= start_date_w & date <= end_date_w)
+```
+
+```{r}
+# Creating a time series object of the monthly series
+
+world_w <- ts(world_data_w[,2], start = c(2000, 1), end = c(2020, 1), frequency = 52)
+
+world_w_ts <-diff(world_w)
+```
+
+```{r}
+# Time series components
+
+world_w_ts_components <- decompose(world_w_ts)
+plot(world_w_ts_components)
+```
+
+```{r}
+# Plotting for trends and patterns
+
+autoplot(world_w_ts) + ggtitle("World Weekly Time Series")
+ggseasonplot(world_w_ts) + ggtitle("Seasonal Plot of World Weekly Time Series")
+ggsubseriesplot(world_w_ts) + ggtitle("Subseries Plot of World Weekly Time Series")
+gglagplot(world_w_ts) + ggtitle("Lag Plot of World Weekly Time Series")
+ggAcf(world_w_ts, lag.max = 20) + ggtitle("ACF Plot of World Weekly Time Series")
+```
+
+```{r}
+# ADF test to check stationarity
+
+adf.test(world_w_ts)
+```
+
+```{r}
+# Naive Forecast
+
+world_w_naive <- naive(world_w_ts, h = 20)
+checkresiduals(world_w_naive)
+forecast(world_w_naive, h = 20) 
+accuracy(world_w_naive)
+```
+
+```{r}
+# Drift Method - Random Walk Forest
+
+world_w_ts %>% rwf %>% residuals -> res_world_w
+rwf_world_w <- rwf(world_w_ts, level=95, drift = TRUE)
+checkresiduals(rwf_world_w)
+summary(rwf_world_w)
+```
+
+```{r}
+# Fitting ARIMA model
+
+arima_model_world_w <- auto.arima(world_w, ic="aic",d=1, trace = TRUE)
+```
+
+```{r}
+# Print model summary
+
+summary(arima_model_world_w)
+```
+
+```{r}
+# Plot residuals
+
+checkresiduals(arima_model_world_w)
+```
+
+```{r}
+# Forecast for next 20 weeks
+
+forecast_values_world_w <- forecast(arima_model_world_w, level = c(95), h=20)
+```
+
+```{r}
+# Plot the predicted values
+
+plot2 <- autoplot(forecast_values_world_w)
+plot2 + labs(title = "Forecasted Values of World Weekly Time Series") + ylab("World Index")
+```
+
+# World Index Daily Dataset
+
+```{r}
+# Subset the data to only include World Index and the date column, and rename the World Index column
+
+colnames(indices_d)[19] <- "World"
+world_data_d <- subset(indices_d, select = c(date, `World`))
+```
+
+```{r}
+# Convert the date column to a Date format and format it as "YYYY-MM-DD"
+world_data_d$date <- as.Date(world_data_d$date)
+
+# Subset the data to only include the last 30 years
+start_date_d <- as.Date("2010-01-01")
+end_date_d <- as.Date("2020-01-01")
+world_data_d <- subset(world_data_d, date >= start_date_d & date <= end_date_d)
+```
+
+```{r}
+# Creating a time series object of the monthly series
+
+world_d <- ts(world_data_d[,2], start = c(2000, 1), end = c(2020, 1), frequency = 252)
+
+world_d_ts <-diff(world_d)
+```
+
+```{r}
+# Time series components
+
+world_d_ts_components <- decompose(world_d_ts)
+plot(world_d_ts_components)
+```
+
+```{r}
+# Plotting for trends and patterns
+
+autoplot(world_d_ts) + ggtitle("World Daily Time Series")
+ggseasonplot(world_d_ts) + ggtitle("Seasonal Plot of World Daily Time Series")
+ggsubseriesplot(world_d_ts) + ggtitle("Subseries Plot of World Daily Time Series")
+gglagplot(world_d_ts) + ggtitle("Lag Plot of World Daily Time Series")
+ggAcf(world_d_ts, lag.max = 20) + ggtitle("ACF Plot of World Daily Time Series")
+```
+
+```{r}
+# ADF test to check stationarity
+
+adf.test(world_d_ts)
+```
+
+```{r}
+# Naive Forecast
+
+world_d_naive <- naive(world_d_ts, h = 20)
+checkresiduals(world_d_naive)
+forecast(world_d_naive, h = 20) 
+accuracy(world_d_naive)
+```
+
+```{r}
+# Drift Method- Random Walk Forecast
+
+world_d_ts %>% rwf %>% residuals -> res_world_d
+rwf_world_d <- rwf(world_d_ts, level=95, drift = TRUE)
+checkresiduals(rwf_world_d)
+summary(rwf_world_d)
+```
+
+```{r}
+# Fit ARIMA model
+
+arima_model_world_d <- auto.arima(world_d, ic="aic",d=1, trace = TRUE)
+```
+
+```{r}
+# Print model summary
+
+summary(arima_model_world_d)
+```
+
+```{r}
+# Plot residuals
+
+checkresiduals(arima_model_world_d)
+```
+
+```{r}
+# Forecasted Values for next 20 days
+
+forecast_values_world_d <- forecast(arima_model_world_d, level = c(95), h=20)
+```
+
+```{r}
+# Plot predicted values
+
+plot3 <- autoplot(forecast_values_world_d)+ labs(title = "Forecasted Values of World Daily Time Series") + ylab("World Index")
+plot3
+```
+
+############################################################################################################################################ 
+
+# FTSE Index Monthly Dataset
+
+```{r}
+# Subset the data to only include World Index and the date column, and rename the World Index column
+
+colnames(indices_d)[5] <- "FTSE"
+ftse_data_m <- subset(indices_d, select = c(date, `FTSE`))
+```
+
+```{r}
+# Convert the date column to a Date format and format it as "YYYY-MM-DD"
+ftse_data_m$date <- as.Date(ftse_data_m$date)
+
+# Subset the data to only include the last 30 years
+start_date_m <- as.Date("1990-01-01")
+end_date_m <- as.Date("2020-01-01")
+ftse_data_m <- subset(ftse_data_m, date >= start_date_m & date <= end_date_m)
+```
+
+```{r}
+# Creating a time series object of the monthly series
+
+ftse_m <- ts(ftse_data_m[,2], start = c(1990, 1), end = c(2020, 1), frequency = 12)
+
+ftse_m_ts <-diff(ftse_m)
+```
+
+```{r}
+# Time series components
+
+ftse_m_ts_components <- decompose(ftse_m_ts)
+plot(ftse_m_ts_components)
+```
+
+# Interactive time plot
+
+```{r}
+# Plotting for trends and patterns
+
+autoplot(ftse_m_ts) + ggtitle("FTSE Monthly Time Series")
+ggseasonplot(ftse_m_ts) + ggtitle("Seasonal Plot of FTSE Monthly Time Series")
+ggsubseriesplot(ftse_m_ts) + ggtitle("Subseries Plot of FTSE Monthly Time Series")
+gglagplot(ftse_m_ts) + ggtitle("Lag Plot of FTSE Monthly Time Series")
+ggAcf(ftse_m_ts, lag.max = 20) + ggtitle("ACF Plot of FTSE Monthly Time Series")
+```
+
+```{r}
+# ADF test to check stationarity
+
+adf.test(ftse_m_ts)
+```
+
+```{r}
+# Naive forecast
+
+ftse_m_naive <- naive(ftse_m_ts, h = 12)
+checkresiduals(ftse_m_naive)
+forecast(ftse_m_naive, h = 12) 
+accuracy(ftse_m_naive)
+```
+
+```{r}
+# Drift- Random walk forcast
+
+ftse_m_ts %>% rwf %>% residuals -> res_ftse_m
+rwf_ftse_m <- rwf(ftse_m_ts, level=95, drift = TRUE)
+checkresiduals(rwf_ftse_m)
+summary(rwf_ftse_m)
+```
+
+```{r}
+# Fit ARIMA model on the time series
+
+arima_model_ftse_m <- auto.arima(ftse_m, ic="aic",d=1, trace = TRUE)
+```
+
+```{r}
+# Print model summary
+
+summary(arima_model_ftse_m)
+```
+
+```{r}
+# Plot residuals
+
+checkresiduals(arima_model_ftse_m)
+```
+
+```{r}
+# Forecast for  next 12 months
+
+forecast_values_ftse_m <- forecast(arima_model_ftse_m, level = c(95), h=12)
+```
+
+```{r}
+# Plot predicted values
+
+plot4 <- autoplot(forecast_values_ftse_m)
+plot4 + labs(title = "Forecasted Values of FTSE Monthly Time Series") + ylab("FTSE Index")
+```
+
+# FTSE Index Weekly Dataset
+
+```{r}
+# Subset the data to only include World Index and the date column, and rename the World Index column
+
+colnames(indices_d)[5] <- "FTSE"
+ftse_data_w <- subset(indices_d, select = c(date, `FTSE`))
+```
+
+```{r}
+# Convert the date column to a Date format and format it as "YYYY-MM-DD"
+ftse_data_w$date <- as.Date(ftse_data_w$date)
+
+# Subset the data to only include the last 30 years
+start_date_w <- as.Date("2000-01-01")
+end_date_w <- as.Date("2020-01-01")
+ftse_data_w <- subset(ftse_data_w, date >= start_date_w & date <= end_date_w)
+```
+
+```{r}
+# Creating a time series object of the monthly series
+
+ftse_w <- ts(ftse_data_w[,2], start = c(2000, 1), end = c(2020, 1), frequency = 52)
+
+ftse_w_ts <-diff(ftse_w)
+```
+
+```{r}
+# Time series components
+
+ftse_w_ts_components <- decompose(ftse_w_ts)
+plot(ftse_w_ts_components)
+```
+
+```{r}
+# Plotting for trends and patterns
+
+autoplot(ftse_w_ts) + ggtitle("FTSE Weekly Time Series")
+ggseasonplot(ftse_w_ts) + ggtitle("Seasonal Plot of FTSE Weekly Time Series")
+ggsubseriesplot(ftse_w_ts) + ggtitle("Subseries Plot of FTSE Weekly Time Series")
+gglagplot(ftse_w_ts) + ggtitle("Lag Plot of FTSE Weekly Time Series")
+ggAcf(ftse_w_ts, lag.max = 20) + ggtitle("ACF Plot of FTSE Weekly Time Series")
+```
+
+```{r}
+# ADF test to check stationarity
+
+adf.test(ftse_w_ts)
+```
+
+```{r}
+# Naive Forecast
+
+ftse_w_naive <- naive(ftse_w_ts, h = 20)
+checkresiduals(ftse_w_naive)
+forecast(ftse_w_naive, h = 20) 
+accuracy(ftse_w_naive)
+```
+
+```{r}
+# Drift Method - Random Walk Forecast
+
+ftse_w_ts %>% rwf %>% residuals -> res_ftse_w
+rwf_ftse_w <- rwf(ftse_w_ts, level=95, drift = TRUE)
+checkresiduals(rwf_ftse_w)
+summary(rwf_ftse_w)
+```
+
+```{r}
+# Fitting ARIMA model
+
+arima_model_ftse_w <- auto.arima(ftse_w, ic="aic",d=1, trace = TRUE)
+```
+
+```{r}
+# Print model summary
+
+summary(arima_model_ftse_w)
+```
+
+```{r}
+# Plot residuals
+
+checkresiduals(arima_model_ftse_w)
+```
+
+```{r}
+# Forecast for next 20 weeks
+
+forecast_values_ftse_w <- forecast(arima_model_ftse_w, level = c(95), h=20)
+```
+
+```{r}
+# Plot the predicted values
+
+plot5 <- autoplot(forecast_values_ftse_w)
+plot5 + labs(title = "Forecasted Values of FTSE Weekly Time Series") + ylab("FTSE Index")
+```
+
+# FTSE Index Daily Dataset
+
+```{r}
+# Subset the data to only include World Index and the date column, and rename the World Index column
+
+colnames(indices_d)[5] <- "FTSE"
+ftse_data_d <- subset(indices_d, select = c(date, `FTSE`))
+```
+
+```{r}
+# Convert the date column to a Date format and format it as "YYYY-MM-DD"
+ftse_data_d$date <- as.Date(ftse_data_d$date)
+
+# Subset the data to only include the last 30 years
+start_date_d <- as.Date("2010-01-01")
+end_date_d <- as.Date("2020-01-01")
+ftse_data_d <- subset(ftse_data_d, date >= start_date_d & date <= end_date_d)
+```
+
+```{r}
+# Creating a time series object of the monthly series
+
+ftse_d <- ts(ftse_data_d[,2], start = c(2010, 1), end = c(2020, 1), frequency = 252)
+
+ftse_d_ts <-diff(ftse_d)
+```
+
+```{r}
+# Time series components
+
+ftse_d_ts_components <- decompose(ftse_d_ts)
+plot(ftse_d_ts_components)
+```
+
+```{r}
+# Plotting for trends and patterns
+
+autoplot(ftse_d_ts) + ggtitle("FTSE Daily Time Series")
+ggseasonplot(ftse_d_ts) + ggtitle("Seasonal Plot of FTSE Daily Time Series")
+ggsubseriesplot(ftse_d_ts) + ggtitle("Subseries Plot of FTSE Daily Time Series")
+gglagplot(ftse_d_ts) + ggtitle("Lag Plot of FTSE Daily Time Series")
+ggAcf(ftse_d_ts, lag.max = 20) + ggtitle("ACF Plot of FTSE Daily Time Series")
+```
+
+```{r}
+# ADF test to check stationarity
+
+adf.test(ftse_d_ts)
+```
+
+```{r}
+# Naive Forecast
+
+ftse_d_naive <- naive(ftse_d_ts, h = 20)
+checkresiduals(ftse_d_naive)
+forecast(ftse_d_naive, h = 20) 
+accuracy(ftse_d_naive)
+```
+
+```{r}
+# Drift Method- Random Walk Forecast
+
+ftse_d_ts %>% rwf %>% residuals -> res_ftse_d
+rwf_ftse_d <- rwf(ftse_d_ts, level=95, drift = TRUE)
+checkresiduals(rwf_ftse_d)
+summary(rwf_ftse_d)
+```
+
+```{r}
+# Fit ARIMA model
+
+arima_model_ftse_d <- auto.arima(ftse_d, ic="aic",d=1, trace = TRUE)
+```
+
+```{r}
+# Print model summary
+
+summary(arima_model_ftse_d)
+```
+
+```{r}
+# Plot residuals
+
+checkresiduals(arima_model_ftse_d)
+```
+
+```{r}
+# Forecasted Values for next 20 days
+
+forecast_values_ftse_d <- forecast(arima_model_ftse_d, level = c(95), h=20)
+```
+
+```{r}
+# Plot predicted values
+
+plot6 <- autoplot(forecast_values_ftse_d)
+plot6 + labs(title = "Forecasted Values of FTSE Daily Time Series") + ylab("FTSE Index")
+```
+
+## Reference
+
+::: callout
+Avramov, D., Chordia, T., & Goyal, A. (2006). Liquidity and Autocorrelation in Individual Stock Returns. Journal of Finance, 61(5), 2365−2394.
+
+Bossaerts, P., & Hillion, P. (1999). Implementing Statistical Criteria to Select Return Forecasting Models: What Do We Learn? Review of Financial Studies, 12(2), 405−428.
+
+Campbell, J. Y. (1987). Stock Returns and the Term Structure. Journal of Financial Economics, 18(2), 373−399.
+
+Campbell, J. Y., & Shiller, R. (1988). The Dividend--Price Ratio, Expectations of Future Dividends, and Discount Factors. Review of Financial Studies, 1, 195−227
+
+Fama, E. F., & French, K. R. (1988). Dividend Yields and Expected Stock Returns. Journal of Financial Economics, 22(1), 3−25.
+
+Fama, E. F., & French, K. R. (1989). Business Conditions and Expected Returns on Stocks and Bonds. Journal of Financial Economics, 25(1), 23−49.
+
+Fama, E. F., & Schwert, G. W. (1981). Stock Returns, Real Activity, Inflation, and Money. American Economic Review, 71, 545−565. Giacomini, R., & White, H. (2006). Tests of Conditional Predictive Ability. Econometrica, 74(6), 1545−1578.
+
+Pesaran, M. H., & Timmermann, A. (1995). Predictability of Stock Returns: Robustness and Economic Significance. Journal of Finance, 50, 1201−1228
+
+Timmermann, A. (2008) "Elusive return predictability," International Journal of Forecasting, 24(1), pp. 1--18.
+:::
